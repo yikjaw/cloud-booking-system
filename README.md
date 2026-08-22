@@ -156,9 +156,13 @@ to preview the design locally before Cognito is wired up).
 ## Deploying (Auto Scaling Group + ALB)
 
 The app runs behind `Season13Hotel-ALB`, which forwards to `Season13Hotel-ASG`
-(EC2 instances launched from `Season13Hotel-LT`). **Every instance
-self-configures on boot** via the launch template's user-data script — there
-is no manual per-instance setup. That script:
+(EC2 instances launched from `Season13Hotel-LT`). The ASG is set to
+**min 2 / desired 2 / max 4**, spanning `us-east-1a` and `us-east-1b`, so
+there are always two instances running in two Availability Zones — verified
+by deliberately terminating one and confirming the group launches and
+self-bootstraps a healthy replacement automatically (~2–3 minutes, no manual
+steps). **Every instance self-configures on boot** via the launch template's
+user-data script — there is no manual per-instance setup. That script:
 
 1. Installs `git`, `python3-pip`, `nginx`.
 2. Deletes and re-clones `/home/ec2-user/cloud-booking-system` fresh from
@@ -179,14 +183,16 @@ is no manual per-instance setup. That script:
 
 To ship a code change:
 1. Push to `main` on GitHub.
-2. SSH into the current ASG instance and `git pull && sudo systemctl restart
-   cloud-booking.service` (find its IP via `aws autoscaling
-   describe-auto-scaling-groups --auto-scaling-group-names Season13Hotel-ASG`).
-3. To roll it out to *future* instances too (not just the current one), update
-   the launch template's user-data (embeds a fixed git ref/branch already, so
-   this is only needed if the bootstrap script itself changes) and run
+2. SSH into each currently-running ASG instance and `git pull && sudo
+   systemctl restart cloud-booking.service` (list them via `aws autoscaling
+   describe-auto-scaling-groups --auto-scaling-group-names Season13Hotel-ASG`
+   — there are normally two, in different AZs, both need updating).
+3. You do **not** need to touch the launch template for an ordinary code
+   change — its bootstrap script always clones whatever is currently on
+   `main` at boot time, so any *new* instance the ASG launches picks up the
+   latest code automatically. Only update the launch template (new version +
    `aws autoscaling start-instance-refresh --auto-scaling-group-name
-   Season13Hotel-ASG`.
+   Season13Hotel-ASG`) if the bootstrap script itself needs to change.
 
 **One-time setup already done, documented for reference:**
 - RDS security group allows inbound `3306` from the ALB/ASG's security group.
@@ -204,12 +210,12 @@ To ship a code change:
 - [ ] Guest can sign in via `/login` and create a booking
 - [ ] Booking is stored in RDS, owned by the signed-in guest
 - [ ] Guest can retrieve/cancel only their own bookings (403 on others')
-- [ ] File can be uploaded
-- [ ] File appears in S3
-- [ ] File can be downloaded
-- [ ] S3 object key is stored in RDS
+- [ ] Paying a booking requires a Proof of Payment file; it uploads to S3
+- [ ] Proof of Payment can be downloaded back from S3
+- [ ] A cancelled booking cannot be paid; only the owning guest (not admins) can pay
 - [ ] Staff user (in `Admins` group) can view/edit/delete any booking at `/admin`
-- [ ] `/health` returns HTTP 200
+- [ ] `/health` returns HTTP 200 and is what the ALB target group checks
+- [ ] Terminating an ASG instance triggers an automatic, self-bootstrapped replacement
 - [ ] Gunicorn can start the application
 - [ ] No AWS access keys or Cognito client secret stored in GitHub
 - [ ] `.env` excluded by `.gitignore`
