@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div class="eyebrow">Staff Access</div>
+        <h2>Manage Bookings</h2>
+    </div>
+
+    {% if bookings %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Room Type</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Payment</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in bookings %}
+            <tr>
+                <td>#{{ b.id }}</td>
+                <td>{{ b.customer_name }}</td>
+                <td>{{ b.room_type_name or "—" }}</td>
+                <td>{{ b.check_in or "—" }}</td>
+                <td>{{ b.check_out or "—" }}</td>
+                <td>{{ "$%.2f"|format(b.total_price) if b.total_price is not none else "—" }}</td>
+                <td><span class="status-pill status-{{ b.status }}">{{ b.status }}</span></td>
+                <td>
+                    {% if b.id in paid_booking_ids %}
+                    <span class="status-pill status-confirmed">Paid</span>
+                    {% else %}
+                    <span class="status-pill status-cancelled">Unpaid</span>
+                    {% endif %}
+                </td>
+                <td class="actions-cell">
+                    <a href="{{ url_for('booking_detail', booking_id=b.id) }}" class="btn btn-sm">View</a>
+                    <a href="{{ url_for('admin_edit_booking', booking_id=b.id) }}" class="btn btn-sm">Edit</a>
+                    <form method="POST" action="{{ url_for('admin_delete_booking', booking_id=b.id) }}"
+                          onsubmit="return confirm('Permanently delete booking #{{ b.id }} ({{ b.customer_name }})? This cannot be undone.');">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state panel">No bookings yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

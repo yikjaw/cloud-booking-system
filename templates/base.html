@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Season 13 Hotels{% endblock %} &middot; Season 13 Hotels</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="container">
+            <a class="brand" href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Season 13 Hotels">
+            </a>
+            <ul class="navlinks">
+                <li><a href="{{ url_for('index') }}">{{ "My Bookings" if session.get('user') else "Home" }}</a></li>
+                {% if session.get('user') %}
+                <li><a href="{{ url_for('create_booking') }}" class="btn-nav">Book a Stay</a></li>
+                <li><a href="{{ url_for('payment_history') }}">Payment History</a></li>
+                {% if session['user'].is_admin %}
+                <li><a href="{{ url_for('admin_dashboard') }}">Admin</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('logout') }}">Log Out</a></li>
+                {% else %}
+                <li><a href="{{ url_for('login') }}" class="btn-nav">Sign In</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash">
+            {% for category, message in messages %}
+            <div class="flash-msg {{ 'error' if category == 'error' else '' }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        &copy; {{ current_year }} Season 13 Hotels &mdash; Quiet Luxury Design
+    </footer>
+</body>
+</html>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Booking #{{ booking.id }}{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div class="eyebrow">Reservation #{{ booking.id }}</div>
+        <h2>{{ booking.customer_name }}</h2>
+    </div>
+
+    <div class="panel">
+        <div class="detail-grid">
+            <div>
+                <div class="label">Room Type</div>
+                <div class="value">{{ booking.room_type_name or "—" }}</div>
+            </div>
+            <div>
+                <div class="label">Status</div>
+                <div class="value"><span class="status-pill status-{{ booking.status }}">{{ booking.status }}</span></div>
+            </div>
+            <div>
+                <div class="label">Check-in</div>
+                <div class="value">{{ booking.check_in or "—" }}</div>
+            </div>
+            <div>
+                <div class="label">Check-out</div>
+                <div class="value">{{ booking.check_out or "—" }}</div>
+            </div>
+            <div>
+                <div class="label">Nights</div>
+                <div class="value">{{ nights or "—" }}</div>
+            </div>
+            <div>
+                <div class="label">Notes</div>
+                <div class="value">{{ booking.notes or "—" }}</div>
+            </div>
+        </div>
+
+        {% if booking.status != 'cancelled' %}
+        <form method="POST" action="{{ url_for('cancel_booking', booking_id=booking.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-danger">Cancel Booking</button>
+        </form>
+        {% endif %}
+
+        <hr class="divider">
+
+        <h3>Price Breakdown</h3>
+        <table style="box-shadow:none; border:1px solid var(--line);">
+            <tbody>
+                <tr>
+                    <td>{{ booking.room_type_name }} &times; {{ nights }} night{{ "s" if nights and nights > 1 else "" }}</td>
+                    <td style="text-align:right;">${{ "%.2f"|format(booking.price_per_night) }}/night</td>
+                </tr>
+                {% if booking.breakfast %}
+                <tr><td>Breakfast each morning</td><td style="text-align:right;">+${{ "%.2f"|format(addon_prices.breakfast) }}/night</td></tr>
+                {% endif %}
+                {% if booking.airport_pickup %}
+                <tr><td>Airport pickup</td><td style="text-align:right;">+${{ "%.2f"|format(addon_prices.airport_pickup) }}</td></tr>
+                {% endif %}
+                {% if booking.room_service %}
+                <tr><td>Room service welcome package</td><td style="text-align:right;">+${{ "%.2f"|format(addon_prices.room_service) }}</td></tr>
+                {% endif %}
+                <tr>
+                    <td><strong>Total</strong></td>
+                    <td style="text-align:right;"><strong>${{ "%.2f"|format(booking.total_price) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr class="divider">
+
+        <h3>Payment</h3>
+        {% if payment %}
+        <p>
+            <span class="status-pill status-confirmed">Paid</span>
+            ${{ "%.2f"|format(payment.amount) }} via {{ payment.method }} on {{ payment.created_at.strftime('%d %b %Y') }}
+        </p>
+        {% if booking.file_key %}
+        <p><a href="{{ url_for('download_attachment', booking_id=booking.id) }}">Download Proof of Payment</a></p>
+        {% endif %}
+        {% elif booking.status == 'cancelled' %}
+        <p style="color: var(--ink-soft);">This booking was cancelled, so no payment is due.</p>
+        {% elif session['user'].sub != booking.owner_sub %}
+        <p style="color: var(--ink-soft);">Awaiting payment from the guest.</p>
+        {% else %}
+        <form method="POST" action="{{ url_for('pay_booking', booking_id=booking.id) }}" enctype="multipart/form-data" class="stack" style="max-width:360px;">
+            <div class="field">
+                <label for="method">Payment Method</label>
+                <select id="method" name="method">
+                    <option>Credit Card</option>
+                    <option>Debit Card</option>
+                    <option>PayPal</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="proof">Proof of Payment</label>
+                <input type="file" id="proof" name="proof" required>
+            </div>
+            <div class="form-note">Simulated payment for demo purposes &mdash; no real card is charged.</div>
+            <button type="submit" class="btn btn-gold">Pay ${{ "%.2f"|format(booking.total_price) }}</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <a href="{{ url_for('index') }}" class="back-link">&larr; Back to all bookings</a>
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+
+<section class="hero" style="background-image: url('{{ url_for('static', filename='images/grand-lobby.jpeg') }}');">
+    <div class="hero-inner">
+        <div class="eyebrow">Season 13 Hotels</div>
+        <h1>Quiet Luxury, Timeless Comfort</h1>
+        <p>A private retreat of marble halls, curated interiors and effortless service.</p>
+        <a href="{{ url_for('create_booking') }}" class="btn btn-gold">Reserve Your Stay</a>
+    </div>
+</section>
+
+<div class="container">
+    <section class="section">
+        <div class="page-header" style="padding-top:0;">
+            <div class="eyebrow">The Property</div>
+            <h2>A Glimpse Inside</h2>
+        </div>
+        <div class="gallery">
+            <a href="{{ url_for('create_booking') }}">
+                <img src="{{ url_for('static', filename='images/lobby-lounge.jpg') }}" alt="Hotel lounge">
+            </a>
+            <a href="{{ url_for('create_booking') }}">
+                <img src="{{ url_for('static', filename='images/pool-terrace.jpg') }}" alt="Pool terrace at dusk">
+            </a>
+            <a href="{{ url_for('create_booking') }}">
+                <img src="{{ url_for('static', filename='images/suite-view.webp') }}" alt="Suite with ocean view">
+            </a>
+            <a href="{{ url_for('create_booking') }}">
+                <img src="{{ url_for('static', filename='images/lounge-hall.jpg') }}" alt="Tiled lounge hall">
+            </a>
+            <a href="{{ url_for('create_booking') }}">
+                <img src="{{ url_for('static', filename='images/marble-hallway.jpg') }}" alt="Marble hallway">
+            </a>
+            <a href="{{ url_for('create_booking') }}">
+                <img src="{{ url_for('static', filename='images/grand-lobby.jpeg') }}" alt="Grand lobby">
+            </a>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="page-header" style="padding-top:0;">
+            <div class="eyebrow">Reservations</div>
+            <h2>{{ "All Bookings" if session.get('user') and session['user'].is_admin else "Your Bookings" }}</h2>
+        </div>
+
+        {% if bookings is none %}
+        <div class="empty-state panel">
+            <p>Sign in to view or manage your reservations.</p>
+            <a href="{{ url_for('login') }}" class="btn btn-gold" style="margin-top:14px;">Sign In</a>
+        </div>
+        {% elif bookings %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Room Type</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bookings %}
+                <tr>
+                    <td><a href="{{ url_for('booking_detail', booking_id=b.id) }}">{{ b.customer_name }}</a></td>
+                    <td>{{ b.room_type_name or "—" }}</td>
+                    <td>{{ b.check_in or "—" }}</td>
+                    <td>{{ b.check_out or "—" }}</td>
+                    <td>{{ "$%.2f"|format(b.total_price) if b.total_price is not none else "—" }}</td>
+                    <td><span class="status-pill status-{{ b.status }}">{{ b.status }}</span></td>
+                    <td>
+                        {% if b.id in paid_booking_ids %}
+                        <span class="status-pill status-confirmed">Paid</span>
+                        {% else %}
+                        <span class="status-pill status-cancelled">Unpaid</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state panel">No bookings yet &mdash; be the first to reserve your stay.</div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

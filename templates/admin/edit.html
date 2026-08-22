@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Edit Booking #{{ booking.id }}{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div class="eyebrow">Staff Access</div>
+        <h2>Edit Booking #{{ booking.id }}</h2>
+    </div>
+
+    <div class="panel">
+        <form class="stack" method="POST" style="max-width:640px;">
+            <div class="field">
+                <label for="customer_name">Customer Name</label>
+                <input type="text" id="customer_name" name="customer_name" value="{{ booking.customer_name }}" required>
+            </div>
+
+            <div class="field">
+                <label for="room_type_id">Room Type</label>
+                <select id="room_type_id" name="room_type_id" required>
+                    {% for rt in room_types %}
+                    <option value="{{ rt.id }}" {{ "selected" if booking.room_type_id == rt.id else "" }}>
+                        {{ rt.name }} (${{ "%.2f"|format(rt.price_per_night) }}/night)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="check_in">Check-in</label>
+                    <input type="date" id="check_in" name="check_in" value="{{ booking.check_in }}" required>
+                </div>
+                <div class="field">
+                    <label for="check_out">Check-out</label>
+                    <input type="date" id="check_out" name="check_out" value="{{ booking.check_out }}" required>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Add-ons</label>
+                <div class="addon-list">
+                    <label class="addon-item">
+                        <input type="checkbox" name="breakfast" {{ "checked" if booking.breakfast else "" }}>
+                        Breakfast each morning
+                    </label>
+                    <label class="addon-item">
+                        <input type="checkbox" name="airport_pickup" {{ "checked" if booking.airport_pickup else "" }}>
+                        Airport pickup
+                    </label>
+                    <label class="addon-item">
+                        <input type="checkbox" name="room_service" {{ "checked" if booking.room_service else "" }}>
+                        Room service welcome package
+                    </label>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="total_price">Total Price ($)</label>
+                <input type="number" step="0.01" min="0" id="total_price" name="total_price" value="{{ "%.2f"|format(booking.total_price) if booking.total_price is not none else '0.00' }}" required>
+            </div>
+
+            <div class="field">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes">{{ booking.notes or "" }}</textarea>
+            </div>
+
+            <div class="field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    {% for s in ["confirmed", "cancelled", "completed"] %}
+                    <option value="{{ s }}" {{ "selected" if booking.status == s else "" }}>{{ s|capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-gold">Save Changes</button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn">Cancel</a>
+        </form>
+    </div>
+
+    <a href="{{ url_for('admin_dashboard') }}" class="back-link">&larr; Back to admin dashboard</a>
+</div>
+
+<script>
+(function () {
+    const checkIn = document.getElementById('check_in');
+    const checkOut = document.getElementById('check_out');
+
+    function toDateStr(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function addDays(dateStr, days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        return toDateStr(d);
+    }
+
+    // Admin edits can involve past dates (fixing an existing booking), so no
+    // "min = today" here — just keep check-in/check-out from crossing.
+    function syncDateConstraints() {
+        if (checkIn.value) {
+            const minOut = addDays(checkIn.value, 1);
+            checkOut.min = minOut;
+            if (checkOut.value && checkOut.value < minOut) checkOut.value = minOut;
+        }
+        if (checkOut.value) {
+            const maxIn = addDays(checkOut.value, -1);
+            checkIn.max = maxIn;
+            if (checkIn.value && checkIn.value > maxIn) checkIn.value = maxIn;
+        }
+    }
+
+    checkIn.addEventListener('change', syncDateConstraints);
+    checkOut.addEventListener('change', syncDateConstraints);
+    syncDateConstraints();
+})();
+</script>
+{% endblock %}

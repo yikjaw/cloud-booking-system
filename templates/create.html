@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Book a Stay{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div class="eyebrow">Reservation</div>
+        <h2>Book a Stay</h2>
+    </div>
+
+    <div class="panel">
+        <form class="stack" method="POST" id="booking-form" style="max-width:720px;">
+            <div class="field-row">
+                <div class="field">
+                    <label for="check_in">Check-in</label>
+                    <input type="date" id="check_in" name="check_in" required>
+                </div>
+                <div class="field">
+                    <label for="check_out">Check-out</label>
+                    <input type="date" id="check_out" name="check_out" required>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Room Type</label>
+                <div class="room-grid">
+                    {% for rt in room_types %}
+                    <label class="room-card" data-room-type-id="{{ rt.id }}">
+                        <input type="radio" name="room_type_id" value="{{ rt.id }}" data-price="{{ rt.price_per_night }}" required>
+                        <div class="room-card-body">
+                            <div class="room-card-top">
+                                <span class="room-name">{{ rt.name }}</span>
+                                <span class="room-price">${{ "%.2f"|format(rt.price_per_night) }}<span class="unit">/night</span></span>
+                            </div>
+                            <p class="room-desc">{{ rt.description }}</p>
+                            <div class="room-card-bottom">
+                                <span>Sleeps {{ rt.capacity }}</span>
+                                <span class="avail-badge">Select dates to check availability</span>
+                            </div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Add-ons</label>
+                <div class="addon-list">
+                    <label class="addon-item">
+                        <input type="checkbox" id="breakfast" name="breakfast" data-price="{{ addon_prices.breakfast }}">
+                        Breakfast each morning <span class="addon-price">+${{ "%.2f"|format(addon_prices.breakfast) }}/night</span>
+                    </label>
+                    <label class="addon-item">
+                        <input type="checkbox" id="airport_pickup" name="airport_pickup" data-price="{{ addon_prices.airport_pickup }}">
+                        Airport pickup <span class="addon-price">+${{ "%.2f"|format(addon_prices.airport_pickup) }}</span>
+                    </label>
+                    <label class="addon-item">
+                        <input type="checkbox" id="room_service" name="room_service" data-price="{{ addon_prices.room_service }}">
+                        Room service welcome package <span class="addon-price">+${{ "%.2f"|format(addon_prices.room_service) }}</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="estimated-total" class="estimate"></div>
+
+            <div class="field">
+                <label for="customer_name">Customer Name</label>
+                <input type="text" id="customer_name" name="customer_name" value="{{ session['user'].email if session.get('user') else '' }}" required>
+            </div>
+
+            <div class="field">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes" placeholder="Any special requests..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-gold">Confirm Booking</button>
+        </form>
+    </div>
+
+    <a href="{{ url_for('index') }}" class="back-link">&larr; Back to all bookings</a>
+</div>
+
+<script>
+(function () {
+    const checkIn = document.getElementById('check_in');
+    const checkOut = document.getElementById('check_out');
+    const cards = document.querySelectorAll('.room-card');
+    const totalEl = document.getElementById('estimated-total');
+    const addonBoxes = [document.getElementById('breakfast'), document.getElementById('airport_pickup'), document.getElementById('room_service')];
+
+    // Format a Date using its LOCAL year/month/day — never toISOString(),
+    // which converts to UTC and silently shifts the date for anyone east
+    // of UTC (e.g. UTC+8 sees "today" roll over up to 8 hours late).
+    function toDateStr(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    const today = toDateStr(new Date());
+    checkIn.min = today;
+
+    function nightsBetween(a, b) {
+        const ms = new Date(b) - new Date(a);
+        return Math.round(ms / 86400000);
+    }
+
+    function addDays(dateStr, days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        return toDateStr(d);
+    }
+
+    // Keep check-in and check-out mutually constrained in both directions —
+    // picking one narrows what's selectable for the other, and nudges an
+    // already-chosen value forward/back if it's no longer valid, instead of
+    // silently allowing check-in after check-out.
+    function syncDateConstraints() {
+        if (checkIn.value) {
+            const minOut = addDays(checkIn.value, 1);
+            checkOut.min = minOut;
+            if (checkOut.value && checkOut.value < minOut) checkOut.value = minOut;
+        }
+        if (checkOut.value) {
+            const maxIn = addDays(checkOut.value, -1);
+            checkIn.max = maxIn;
+            if (checkIn.value && checkIn.value > maxIn) checkIn.value = maxIn;
+        }
+    }
+
+    async function refreshAvailability() {
+        syncDateConstraints();
+        if (!checkIn.value || !checkOut.value) return;
+        if (nightsBetween(checkIn.value, checkOut.value) <= 0) return;
+
+        for (const card of cards) {
+            const radio = card.querySelector('input[type=radio]');
+            const badge = card.querySelector('.avail-badge');
+            badge.textContent = 'Checking…';
+            try {
+                const res = await fetch(`/api/room-availability?room_type_id=${card.dataset.roomTypeId}&check_in=${checkIn.value}&check_out=${checkOut.value}`);
+                const data = await res.json();
+                if (typeof data.available === 'number') {
+                    badge.textContent = data.available > 0 ? `${data.available} room${data.available === 1 ? '' : 's'} available` : 'Sold out for these dates';
+                    card.classList.toggle('sold-out', data.available < 1);
+                    radio.disabled = data.available < 1;
+                    if (data.available < 1 && radio.checked) { radio.checked = false; }
+                }
+            } catch (e) {
+                badge.textContent = '';
+            }
+        }
+        updateEstimate();
+    }
+
+    function updateEstimate() {
+        const selected = document.querySelector('input[name=room_type_id]:checked');
+        if (!checkIn.value || !checkOut.value || !selected) { totalEl.textContent = ''; return; }
+        const nights = nightsBetween(checkIn.value, checkOut.value);
+        if (nights <= 0) { totalEl.textContent = ''; return; }
+
+        let total = nights * parseFloat(selected.dataset.price);
+        addonBoxes.forEach((box) => {
+            if (box.checked) {
+                total += box.id === 'breakfast' ? nights * parseFloat(box.dataset.price) : parseFloat(box.dataset.price);
+            }
+        });
+        totalEl.textContent = `Estimated total: $${total.toFixed(2)} for ${nights} night${nights > 1 ? 's' : ''}`;
+    }
+
+    checkIn.addEventListener('change', refreshAvailability);
+    checkOut.addEventListener('change', refreshAvailability);
+    cards.forEach((card) => card.querySelector('input[type=radio]').addEventListener('change', updateEstimate));
+    addonBoxes.forEach((box) => box.addEventListener('change', updateEstimate));
+})();
+</script>
+{% endblock %}

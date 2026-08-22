@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Payment History{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div class="eyebrow">Billing</div>
+        <h2>{{ "All Payments" if session['user'].is_admin else "Payment History" }}</h2>
+    </div>
+
+    {% if payments %}
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Booking</th>
+                <th>Room Type</th>
+                <th>Stay</th>
+                <th>Method</th>
+                <th>Amount</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payments %}
+            <tr>
+                <td>{{ p.created_at.strftime('%d %b %Y') }}</td>
+                <td><a href="{{ url_for('booking_detail', booking_id=p.booking_id) }}">#{{ p.booking_id }}</a></td>
+                <td>{{ p.room_type_name or "—" }}</td>
+                <td>{{ p.check_in }} &rarr; {{ p.check_out }}</td>
+                <td>{{ p.method }}</td>
+                <td>${{ "%.2f"|format(p.amount) }}</td>
+                <td><span class="status-pill status-confirmed">{{ p.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state panel">No payments yet.</div>
+    {% endif %}
+</div>
+{% endblock %}
